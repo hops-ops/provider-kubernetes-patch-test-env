@@ -31,6 +31,25 @@ if [ ! -x "$SCRIPT_DIR/patch.sh" ]; then
   exit 1
 fi
 
+if [ ! -x "$SCRIPT_DIR/build.sh" ]; then
+  echo "build.sh not found or not executable."
+  exit 1
+fi
+
+if [ ! -x "$SCRIPT_DIR/provider-source.sh" ]; then
+  echo "provider-source.sh not found or not executable."
+  exit 1
+fi
+
+if [ -z "${PROVIDER_DIR:-}" ] && [ -z "${PROVIDER_REPO:-}" ] && [ -t 0 ]; then
+  . "$SCRIPT_DIR/provider-source.sh"
+fi
+
+build_pid=""
+echo ">> Build provider in background"
+"$SCRIPT_DIR/build.sh" &
+build_pid=$!
+
 echo ">> Setup cluster"
 "$SCRIPT_DIR/setup.sh"
 
@@ -48,7 +67,10 @@ echo ">> Check (before fix)"
 
 echo ""
 echo ">> Patch provider-kubernetes"
-"$SCRIPT_DIR/patch.sh"
+if [ -n "$build_pid" ]; then
+  wait "$build_pid"
+fi
+SKIP_BUILD=1 "$SCRIPT_DIR/patch.sh"
 
 echo ""
 echo ">> Check (after fix)"

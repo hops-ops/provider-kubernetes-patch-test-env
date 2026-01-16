@@ -41,6 +41,7 @@ metadata:
   namespace: crossplane-system
 spec:
   package: ${PROVIDER_K8S_PACKAGE}
+  packagePullPolicy: IfNotPresent
   runtimeConfigRef:
     apiVersion: pkg.crossplane.io/v1beta1
     kind: DeploymentRuntimeConfig

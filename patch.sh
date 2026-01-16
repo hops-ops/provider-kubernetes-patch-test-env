@@ -2,20 +2,9 @@
 set -e
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-PROVIDER_DIR="${PROVIDER_DIR:-$ROOT_DIR/provider-kubernetes-fix}"
-PROVIDER_REPO="${PROVIDER_REPO:-}"
-PROVIDER_REF="${PROVIDER_REF:-}"
-PROVIDER_CLONE_DIR="${PROVIDER_CLONE_DIR:-/tmp/minimal-repro-provider-kubernetes}"
 
 if ! command -v kubectl >/dev/null 2>&1; then
   echo "kubectl is required but not found in PATH."
-  exit 1
-fi
-
-CTX="$(kubectl config current-context 2>/dev/null || true)"
-if [ -z "$CTX" ]; then
-  echo "No current kubectl context set."
   exit 1
 fi
 
@@ -38,34 +27,12 @@ if ! command -v docker >/dev/null 2>&1; then
   exit 1
 fi
 
-if [ -n "$PROVIDER_REPO" ]; then
-  if ! command -v git >/dev/null 2>&1; then
-    echo "git is required but not found in PATH."
-    exit 1
-  fi
-  if [ -d "$PROVIDER_CLONE_DIR/.git" ]; then
-    echo "Updating provider repo in $PROVIDER_CLONE_DIR..."
-    git -C "$PROVIDER_CLONE_DIR" fetch --all --tags
-  else
-    echo "Cloning provider repo to $PROVIDER_CLONE_DIR..."
-    rm -rf "$PROVIDER_CLONE_DIR"
-    git clone "$PROVIDER_REPO" "$PROVIDER_CLONE_DIR"
-  fi
-  if [ -n "$PROVIDER_REF" ]; then
-    git -C "$PROVIDER_CLONE_DIR" checkout "$PROVIDER_REF"
-  fi
-  PROVIDER_DIR="$PROVIDER_CLONE_DIR"
-fi
-
-if [ ! -d "$PROVIDER_DIR" ]; then
-  echo "Missing provider repo at $PROVIDER_DIR"
+if [ ! -x "$SCRIPT_DIR/provider-source.sh" ]; then
+  echo "provider-source.sh not found or not executable."
   exit 1
 fi
 
-if [ ! -d "$PROVIDER_DIR/build/makelib" ]; then
-  echo "Initializing build submodule..."
-  (cd "$PROVIDER_DIR" && git submodule update --init --recursive)
-fi
+"$SCRIPT_DIR/provider-source.sh"
 
 
 PROVIDER_NAME="$(kubectl get providers.pkg.crossplane.io -o json | jq -r '
@@ -87,7 +54,12 @@ if [ -z "$RUNTIME_CONFIG_NAME" ]; then
 fi
 
 echo "=== Building provider-kubernetes fix ==="
-make -C "$PROVIDER_DIR" xpkg.build.provider-kubernetes
+if [ "${SKIP_BUILD:-}" != "1" ]; then
+  make -C "$PROVIDER_DIR" build
+  make -C "$PROVIDER_DIR" xpkg.build.provider-kubernetes
+else
+  echo "SKIP_BUILD=1 set; using existing build artifacts."
+fi
 
 echo "=== Syncing local xpkg cache into Crossplane ==="
 make -C "$PROVIDER_DIR" local.xpkg.sync
