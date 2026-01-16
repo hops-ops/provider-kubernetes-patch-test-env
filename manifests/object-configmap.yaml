@@ -1,0 +1,31 @@
+# This Object resource manages a regular ConfigMap.
+#
+# EXPECTED BEHAVIOR:
+# This Object should become Ready because:
+# 1. ConfigMaps don't have a controller that adds finalizers
+# 2. No other controller uses "crossplane-kubernetes-provider" as field manager
+# 3. Therefore, no false-positive CSA->SSA migration is triggered
+#
+# This contrasts with the ProviderConfig case where the ProviderConfig controller
+# adds finalizers using the same field manager name, triggering the bug.
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  name: test-object-configmap
+  namespace: default
+spec:
+  managementPolicies:
+    - "*"
+  forProvider:
+    manifest:
+      apiVersion: v1
+      kind: ConfigMap
+      metadata:
+        name: test-configmap
+        namespace: default
+      data:
+        key1: value1
+        key2: value2
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig

@@ -1,0 +1,10 @@
+# This is the ProviderConfig that will be created by the Object resource.
+# It uses the "InjectedIdentity" source which doesn't require any secrets.
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: ProviderConfig
+metadata:
+  name: test-providerconfig
+  namespace: default
+spec:
+  credentials:
+    source: InjectedIdentity

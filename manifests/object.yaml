@@ -1,0 +1,35 @@
+# This Object resource manages a ProviderConfig.
+#
+# BUG SCENARIO (before fix):
+# 1. Object creates the ProviderConfig via SSA
+# 2. ProviderConfig controller adds finalizers using "crossplane-kubernetes-provider" as field manager
+# 3. Object sees an "Update" operation from "crossplane-kubernetes-provider" in managedFields
+# 4. needSSAFieldManagerUpgrade() incorrectly returns true (triggering CSA->SSA migration)
+# 5. Object never becomes Ready because it keeps trying to migrate
+#
+# FIXED BEHAVIOR:
+# - hasSpecFields() checks if the legacy manager owns f:spec fields
+# - Finalizer-only entries (f:metadata.f:finalizers) don't have f:spec
+# - Migration is NOT triggered, Object becomes Ready
+apiVersion: kubernetes.m.crossplane.io/v1alpha1
+kind: Object
+metadata:
+  name: test-object-providerconfig
+  namespace: default
+spec:
+  # Use SSA management policy (default in newer versions)
+  managementPolicies:
+    - "*"
+  forProvider:
+    manifest:
+      apiVersion: kubernetes.m.crossplane.io/v1alpha1
+      kind: ProviderConfig
+      metadata:
+        name: test-providerconfig
+        namespace: default
+      spec:
+        credentials:
+          source: InjectedIdentity
+  providerConfigRef:
+    name: default
+    kind: ProviderConfig
